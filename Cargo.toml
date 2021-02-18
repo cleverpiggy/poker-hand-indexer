@@ -1,0 +1,10 @@
+[package]
+name = "hand_indexer"
+version = "0.1.0"
+authors = ["Allen Boyd Cunningham <cleverpiggy1@mac.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+cc = {version = "1.0.66", features =  ["parallel"]}

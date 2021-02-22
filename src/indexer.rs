@@ -5,18 +5,15 @@ use std::convert::{TryFrom, TryInto};
 // TODO see if I need to use different types for cards
 // and if a card buffer would make sense.
 
+// TODO remember to change this if I update indexer.c
+const MAX_INDICES: usize = 4;
+
 #[derive(Debug)]
 pub struct Indexer {
     pub shape: Vec<u8>,
     pub size: Vec<usize>,
     pub max_cards: usize,
     soul: IndexerPtr,
-    // Indexes buffer is for performance as I typically want to
-    // convert types for the returns.  This way I don't have to
-    // allocate twice.
-    // Performace should improve farther if I just make the caller
-    // read from this field, but that's too user unfriendly.
-    indexes_buffer: Vec<u64>,
 }
 /// In an Indexer cards are represented as u8 (keeping true to
 /// Kevins minimalist design).  Indexes are usize.  I've presumptuously
@@ -60,13 +57,11 @@ impl Indexer {
                 })
                 .collect()
         };
-        let indexes_buffer = vec![0_u64; shape.len()];
         Self {
             shape,
             size,
             soul,
             max_cards,
-            indexes_buffer,
         }
     }
 
@@ -94,9 +89,10 @@ impl Indexer {
     /// assert!(indexes[0] < indexer.size[0]);
     /// assert!(indexes[1] < indexer.size[1]);
     /// ```
-    pub fn index_all(&mut self, cards: &[u8]) -> Vec<usize> {
+    pub fn index_all(&self, cards: &[u8]) -> Vec<usize> {
         // so we can check for success
-        *self.indexes_buffer.last_mut().unwrap() = 1;
+        // *self.indexes_buffer.last_mut().unwrap() = 1;
+        let mut indexes_buffer: [u64; MAX_INDICES] = [1; MAX_INDICES];
 
         if cards.len() != self.max_cards {
             panic!(
@@ -109,18 +105,19 @@ impl Indexer {
             rust_index_all(
                 self.soul,
                 cards.as_ptr(),
-                self.indexes_buffer.as_mut_ptr(),
+                indexes_buffer.as_mut_ptr(),
             )
         };
         // Index all returns 0 on failure or last index on success.
         // I initialized buffer to 1s to test success.
         // (it should always succeed if indexer ptr is valid)
-        if final_index != *self.indexes_buffer.last().unwrap() {
+        if final_index != indexes_buffer[self.shape.len() - 1] {
             panic!("something went wrong indexing");
         }
         // now my buffer should be filled
-        self.indexes_buffer
+        indexes_buffer
             .iter()
+            .take(self.shape.len())
             .map(|x| usize::try_from(*x).unwrap())
             .collect()
     }
@@ -232,7 +229,7 @@ mod tests {
 
     #[test]
     fn index_all() {
-        let mut indexer = Indexer::new(vec![2, 3, 1, 1]);
+        let indexer = Indexer::new(vec![2, 3, 1, 1]);
         let cards = indexer.unindex(1234567, 3);
         assert_eq!(cards.len(), 7);
         assert_eq!(indexer.index_all(&cards)[3], 1234567);
@@ -240,7 +237,7 @@ mod tests {
 
     #[test]
     fn index_round() {
-        let mut indexer = Indexer::new(vec![2, 3, 1, 1]);
+        let indexer = Indexer::new(vec![2, 3, 1, 1]);
         let cards: Vec<u8> = vec![45, 34, 32, 12, 11, 50, 2];
         let indexes = indexer.index_all(&cards);
         assert_eq!(indexer.index_round(&cards[..2]), indexes[0]);

@@ -40,8 +40,7 @@ impl Indexer {
     pub fn new(shape: Vec<u8>) -> Self {
         let rounds = shape.len() as u32;
         let mut success = true;
-        let soul =
-            unsafe { rust_init_indexer(rounds, shape.as_ptr(), &mut success as *mut bool) };
+        let soul = unsafe { rust_init_indexer(rounds, shape.as_ptr(), &mut success as *mut bool) };
 
         if !success {
             panic!("hand shape not supported: {:?}", shape);
@@ -101,13 +100,8 @@ impl Indexer {
                 self.max_cards
             );
         }
-        let final_index = unsafe {
-            rust_index_all(
-                self.soul,
-                cards.as_ptr(),
-                indexes_buffer.as_mut_ptr(),
-            )
-        };
+        let final_index =
+            unsafe { rust_index_all(self.soul, cards.as_ptr(), indexes_buffer.as_mut_ptr()) };
         // Index all returns 0 on failure or last index on success.
         // I initialized buffer to 1s to test success.
         // (it should always succeed if indexer ptr is valid)

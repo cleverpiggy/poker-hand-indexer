@@ -10,6 +10,9 @@
 #define ROUND_SHIFT            4
 #define ROUND_MASK             0xf
 
+// ADDED to suppress warnings
+#define UNUSED(x) (void)(x)
+
 static uint8_t nth_unset[1<<RANKS][RANKS];
 static bool equal[1<<(SUITS-1)][SUITS];
 static uint_fast32_t nCr_ranks[RANKS+1][RANKS+1], rank_set_to_index[1<<RANKS], index_to_rank_set[RANKS+1][1<<RANKS], (*suit_permutations)[SUITS];
@@ -138,6 +141,8 @@ bool enumerate_configurations(uint_fast32_t rounds, const uint8_t cards_per_roun
 // ADDED void -> bool
 bool count_configurations(uint_fast32_t round, uint_fast32_t configuration[], void * data) {
   uint_fast32_t * counts = data; ++counts[round];
+  // ADDED
+  UNUSED(configuration);
   return true;
 }
 
@@ -424,6 +429,8 @@ void hand_indexer_state_init(const hand_indexer_t * indexer, hand_indexer_state_
   for(uint_fast32_t i=0; i<SUITS; ++i) {
     state->suit_multiplier[i] = 1;
   }
+  // ADDED
+  UNUSED(indexer);
 }
 
 hand_index_t hand_index_all(const hand_indexer_t * indexer, const uint8_t cards[], hand_index_t indices[]) {

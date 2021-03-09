@@ -7,4 +7,4 @@
 //!
 
 mod indexer;
-pub use indexer::Indexer;
+pub use indexer::{Indexer, IndexerD};

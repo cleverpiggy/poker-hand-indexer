@@ -25,13 +25,16 @@ pub struct Indexer {
 /// at least.  Luckily the holdem shape of 2, 3, 1, 1 ends up
 /// with a maximum river index of 2428287420 which works on a 32 bit
 /// machine.  (Upgrade your computer.)
-
+///
 /// A shape represents each of the independant card groups in the hand.
 /// The order of cards within each group is not preserved.  The order of
 /// card between groups is preserved.  The suit relations within each group
 /// and between groups is preserved as you would expect.
 /// For example AsKs | JdTs9s and KcAc | 9cJhTc would map to the same index.
 
+/// Does not work with duplicate cards.  If duplicate cards are used the indexer
+/// will just quietly give you a meaningless answer.  The alternative IndexerD
+/// will panic on receiving duplicates instead (for the performance cost of checking).
 impl Indexer {
     /// Return an indexer for the supplied shape.
     ///
@@ -191,6 +194,57 @@ impl Drop for Indexer {
     }
 }
 
+/// Exactly the same as Indexer except it panics on duplicate cards.
+/// The standard Indexer will just quietly give a wrong answer.
+#[derive(Debug)]
+pub struct IndexerD {
+    indexer: Indexer,
+    pub shape: Vec<u8>,
+    pub size: Vec<usize>,
+    pub max_cards: usize,
+}
+
+impl IndexerD {
+    pub fn new(shape: Vec<u8>) -> Self {
+        let indexer = Indexer::new(shape);
+        let (shape, size, max_cards) = (
+            indexer.shape.clone(), indexer.size.clone(), indexer.max_cards);
+        Self {
+            indexer, shape, size, max_cards,
+        }
+    }
+
+    pub fn index_all(&self, cards: &[u8]) -> Vec<usize> {
+        if duplicates(cards) {
+            panic!("duplicate cards");
+        }
+        self.indexer.index_all(cards)
+    }
+
+    pub fn index_round(&self, cards: &[u8]) -> usize {
+        if duplicates(cards) {
+            panic!("duplicate cards");
+        }
+        self.indexer.index_round(cards)
+    }
+
+    pub fn unindex(&self, index: usize, round: usize) -> Vec<u8> {
+        self.indexer.unindex(index, round)
+    }
+}
+
+
+fn duplicates(cards: &[u8]) -> bool {
+    for (i, c) in cards.iter().enumerate() {
+        for c2 in &cards[(i + 1)..] {
+            if c == c2 {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -238,5 +292,23 @@ mod tests {
         assert_eq!(indexer.index_round(&cards[..5]), indexes[1]);
         assert_eq!(indexer.index_round(&cards[..6]), indexes[2]);
         assert_eq!(indexer.index_round(&cards[..7]), indexes[3]);
+    }
+
+    #[test]
+    fn dups() {
+        let indexer = IndexerD::new(vec![2]);
+        indexer.index_all(&[0, 1]);
+        indexer.index_all(&[51, 50]);
+        indexer.index_round(&vec![0, 1]);
+        indexer.index_round(&vec![51, 50]);
+        indexer.unindex(168, 0);
+        indexer.unindex(0, 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn dups_panic() {
+        let indexer = IndexerD::new(vec![2]);
+        indexer.index_all(&[2, 2]);
     }
 }

@@ -208,9 +208,15 @@ impl IndexerD {
     pub fn new(shape: Vec<u8>) -> Self {
         let indexer = Indexer::new(shape);
         let (shape, size, max_cards) = (
-            indexer.shape.clone(), indexer.size.clone(), indexer.max_cards);
+            indexer.shape.clone(),
+            indexer.size.clone(),
+            indexer.max_cards,
+        );
         Self {
-            indexer, shape, size, max_cards,
+            indexer,
+            shape,
+            size,
+            max_cards,
         }
     }
 
@@ -232,7 +238,6 @@ impl IndexerD {
         self.indexer.unindex(index, round)
     }
 }
-
 
 fn duplicates(cards: &[u8]) -> bool {
     for (i, c) in cards.iter().enumerate() {

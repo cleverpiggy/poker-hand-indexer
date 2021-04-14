@@ -1,7 +1,6 @@
 // for now this is how I know how to do it until i figure out build.rs
 // bindgen --whitelist-function '^rust.*' --whitelist-type '^rust.*' --whitelist-var '^rust.*'  src_c/rust.h
 
-
 pub type IndexerPtr = *mut ::std::os::raw::c_void;
 
 extern "C" {

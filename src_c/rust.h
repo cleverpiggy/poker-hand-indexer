@@ -27,4 +27,8 @@ bool rust_unindex(void * v_indexer, uint32_t round, uint64_t index, uint8_t card
 //      - which doesn't work as a fail flag since an index can be 0
 uint64_t rust_index_round(void * v_indexer, const uint8_t cards[], uint32_t ncards);
 
+hand_indexer_state_t* rust_init_indexer_state(void * v_indexer);
+
+void rust_free_state(void* v_state);
+
 #endif

@@ -69,3 +69,15 @@ uint64_t rust_index_round(void * v_indexer, const uint8_t cards[], uint32_t ncar
     }
     return index;
 }
+
+hand_indexer_state_t* rust_init_indexer_state(void * v_indexer) {
+    hand_indexer_state_t * state = (hand_indexer_state_t*) malloc(sizeof(hand_indexer_state_t));
+    // You don't need to coerce the v_indexer because it isn't used in this function.
+    hand_indexer_state_init(v_indexer, state);
+    return state;
+}
+
+void rust_free_state(void * v_state) {
+    free(v_state);
+}
+

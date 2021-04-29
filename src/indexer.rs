@@ -10,7 +10,7 @@ const MAX_INDICES: usize = 4;
 
 #[derive(Debug)]
 pub struct Indexer {
-    pub shape: Vec<u8>,
+    pub shape: Vec<usize>,
     pub size: Vec<usize>,
     pub max_cards: usize,
     soul: IndexerPtr,
@@ -40,15 +40,16 @@ impl Indexer {
     ///
     /// A shape is a list of cards per round.  For example
     /// [2, 3, 1, 1] would be holdem's shape.
-    pub fn new(shape: Vec<u8>) -> Self {
+    pub fn new(shape: Vec<usize>) -> Self {
         let rounds = shape.len() as u32;
+        let shape_u8: Vec<u8> = shape.iter().map(|x| u8::try_from(*x).unwrap()).collect();
         let mut success = true;
-        let soul = unsafe { rust_init_indexer(rounds, shape.as_ptr(), &mut success as *mut bool) };
+        let soul = unsafe { rust_init_indexer(rounds, shape_u8.as_ptr(), &mut success as *mut bool) };
 
         if !success {
             panic!("hand shape not supported: {:?}", shape);
         }
-        let max_cards = shape.iter().sum::<u8>() as usize;
+        let max_cards = shape.iter().sum::<usize>();
         let size = unsafe {
             // returns 0 on bad input or a zero sized indexer
             // both are stupid
@@ -150,7 +151,7 @@ impl Indexer {
         // This function just uses all the cards it can
         // and it's up to the caller to know what round it
         // it and what he's doing.
-        if cards.len() < self.shape[0].into() {
+        if cards.len() < self.shape[0] {
             panic!("not even enough cards for the first round");
         }
         unsafe {
@@ -175,7 +176,7 @@ impl Indexer {
     /// assert_eq!(indexer.index_round(&cards), some_index);
     /// ```
     pub fn unindex(&self, index: usize, round: usize) -> Vec<u8> {
-        let num_cards = self.shape[..round + 1].iter().sum::<u8>() as usize;
+        let num_cards = self.shape[..round + 1].iter().sum::<usize>();
         let mut cards: Vec<u8> = vec![0; num_cards];
 
         unsafe {
@@ -208,8 +209,8 @@ impl Drop for Indexer {
 pub struct LazyIndexer<'a> {
     soul: IndexerPtr,
     state: StatePtr,
-    shape: &'a [u8],
-    round: usize,
+    pub shape: &'a [usize],
+    pub round: usize,
 }
 
 impl LazyIndexer<'_> {
@@ -236,7 +237,7 @@ impl LazyIndexer<'_> {
         if self.round >= self.shape.len() {
             return None;
         }
-        if cards.len() != self.shape[self.round].into() {
+        if cards.len() != self.shape[self.round] {
             panic!("incorrect number of cards for next round: {:?}", cards);
         }
 
@@ -261,13 +262,13 @@ impl Drop for LazyIndexer<'_> {
 #[derive(Debug)]
 pub struct IndexerD {
     indexer: Indexer,
-    pub shape: Vec<u8>,
+    pub shape: Vec<usize>,
     pub size: Vec<usize>,
     pub max_cards: usize,
 }
 
 impl IndexerD {
-    pub fn new(shape: Vec<u8>) -> Self {
+    pub fn new(shape: Vec<usize>) -> Self {
         let indexer = Indexer::new(shape);
         let (shape, size, max_cards) = (
             indexer.shape.clone(),
@@ -320,10 +321,10 @@ mod tests {
     #[test]
     fn new() {
         let indexer = Indexer::new(vec![2, 3]);
-        assert_eq!(indexer.shape, vec![2_u8, 3]);
+        assert_eq!(indexer.shape, vec![2_usize, 3]);
 
         let indexer = Indexer::new(vec![2, 3, 1, 1]);
-        assert_eq!(indexer.shape, vec![2_u8, 3, 1, 1]);
+        assert_eq!(indexer.shape, vec![2_usize, 3, 1, 1]);
     }
 
     #[test]

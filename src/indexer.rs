@@ -186,11 +186,73 @@ impl Indexer {
         }
         cards
     }
+
+    /// Return a LazyIndexer
+    pub fn incremental(&self) -> LazyIndexer {
+        let state = unsafe { rust_init_indexer_state(self.soul) };
+        LazyIndexer {
+            soul: self.soul,
+            state,
+            shape: &self.shape,
+            round: 0,
+        }
+    }
 }
 
 impl Drop for Indexer {
     fn drop(&mut self) {
         unsafe { rust_free_indexer(self.soul) }
+    }
+}
+
+pub struct LazyIndexer<'a> {
+    soul: IndexerPtr,
+    state: StatePtr,
+    shape: &'a [u8],
+    round: usize,
+}
+
+impl LazyIndexer<'_> {
+    /// Returns the index for the next round.
+    /// You must provide the exact number of cards for
+    /// the current round and index the rounds one at a time.
+    ///
+    /// # Panics
+    /// - if the incorrect number of cards are supplied
+    ///
+    /// # Example
+    /// ```
+    /// use hand_indexer::Indexer;
+    /// let indexer = Indexer::new(vec![2, 3, 1, 1]);
+    /// let cards = vec![3, 45, 32, 22, 12, 11, 2];
+    /// let mut lazy_i = indexer.incremental();
+    /// assert_eq!(lazy_i.next_round(&cards[0..2]).unwrap(), indexer.index_round(&cards[0..2]));
+    /// assert_eq!(lazy_i.next_round(&cards[2..5]).unwrap(), indexer.index_round(&cards[0..5]));
+    /// assert_eq!(lazy_i.next_round(&cards[5..6]).unwrap(), indexer.index_round(&cards[0..6]));
+    /// assert_eq!(lazy_i.next_round(&cards[6..7]).unwrap(), indexer.index_round(&cards[0..7]));
+    /// assert_eq!(lazy_i.next_round(&cards[6..7]), None);
+    /// ```
+    pub fn next_round(&mut self, cards: &[u8]) -> Option<usize> {
+        if self.round >= self.shape.len() {
+            return None;
+        }
+        if cards.len() != self.shape[self.round].into() {
+            panic!("incorrect number of cards for next round: {:?}", cards);
+        }
+
+        let index = unsafe {
+            hand_index_next_round(self.soul, cards.as_ptr(), self.state)
+                .try_into()
+                .unwrap()
+        };
+        self.round += 1;
+        Some(index)
+    }
+}
+
+impl Drop for LazyIndexer<'_> {
+    fn drop(&mut self) {
+        unsafe { rust_free_state(self.state) }
     }
 }
 
@@ -238,6 +300,7 @@ impl IndexerD {
         self.indexer.unindex(index, round)
     }
 }
+
 
 fn duplicates(cards: &[u8]) -> bool {
     for (i, c) in cards.iter().enumerate() {

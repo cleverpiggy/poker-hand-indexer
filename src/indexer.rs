@@ -44,7 +44,8 @@ impl Indexer {
         let rounds = shape.len() as u32;
         let shape_u8: Vec<u8> = shape.iter().map(|x| u8::try_from(*x).unwrap()).collect();
         let mut success = true;
-        let soul = unsafe { rust_init_indexer(rounds, shape_u8.as_ptr(), &mut success as *mut bool) };
+        let soul =
+            unsafe { rust_init_indexer(rounds, shape_u8.as_ptr(), &mut success as *mut bool) };
 
         if !success {
             panic!("hand shape not supported: {:?}", shape);
@@ -301,7 +302,6 @@ impl IndexerD {
         self.indexer.unindex(index, round)
     }
 }
-
 
 fn duplicates(cards: &[u8]) -> bool {
     for (i, c) in cards.iter().enumerate() {

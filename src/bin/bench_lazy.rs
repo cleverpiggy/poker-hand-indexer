@@ -1,4 +1,4 @@
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 extern crate hand_indexer;
 use hand_indexer::Indexer;
 
@@ -19,7 +19,6 @@ use hand_indexer::Indexer;
 // two: 41.17406ms
 // three: 52.176466ms
 // four: 63.132026ms
-
 
 fn main() {
     let indexer = Indexer::new(vec![2, 3, 1, 1]);
@@ -42,7 +41,7 @@ fn main() {
                     cards[3] = d as u8;
                     for e in 26..32 {
                         cards[4] = e as u8;
-                        for f in 32 ..38 {
+                        for f in 32..38 {
                             cards[5] = f as u8;
                             for g in 38..44 {
                                 cards[6] = g as u8;
@@ -51,7 +50,7 @@ fn main() {
                                 one += time_lazy(&indexer, &cards, 1, &mut buf);
                                 two += time_lazy(&indexer, &cards, 2, &mut buf);
                                 three += time_lazy(&indexer, &cards, 3, &mut buf);
-                                four +=  time_lazy(&indexer, &cards, 4, &mut buf);
+                                four += time_lazy(&indexer, &cards, 4, &mut buf);
                                 assert_eq!(result, buf);
                             }
                         }

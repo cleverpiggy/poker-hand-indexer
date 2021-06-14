@@ -64,8 +64,8 @@ impl Indexer {
         Self {
             shape,
             size,
-            soul,
             max_cards,
+            soul,
         }
     }
 

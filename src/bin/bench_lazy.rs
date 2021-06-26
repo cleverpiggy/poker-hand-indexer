@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 extern crate hand_indexer;
-use hand_indexer::Indexer;
-
+use hand_indexer::{IndexVec, Indexer};
+use smallvec::smallvec;
 // compare indexing the rounds one at a time with lazy indexer
 // to index all.
 // in both cases we return a newly allocated vector
@@ -29,7 +29,7 @@ fn main() {
     let mut three = Duration::new(0, 0);
     let mut four = Duration::new(0, 0);
 
-    let mut buf = vec![0_usize; 4];
+    let mut buf: IndexVec<usize> = smallvec![0_usize; 4];
 
     for a in 0..6 {
         cards[0] = a as u8;
@@ -66,7 +66,7 @@ fn main() {
     println!("four: {:?}", four);
 }
 
-fn time_all(indexer: &Indexer, cards: &[u8]) -> (Vec<usize>, Duration) {
+fn time_all(indexer: &Indexer, cards: &[u8]) -> (IndexVec<usize>, Duration) {
     let start = Instant::now();
     let result = indexer.index_all(cards);
     let time = Instant::now() - start;

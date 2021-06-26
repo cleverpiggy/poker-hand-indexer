@@ -1,5 +1,6 @@
 mod rust_bindings;
 use rust_bindings::*;
+use smallvec::{smallvec, SmallVec};
 use std::convert::{TryFrom, TryInto};
 
 // TODO see if I need to use different types for cards
@@ -7,6 +8,8 @@ use std::convert::{TryFrom, TryInto};
 
 // TODO remember to change this if I update indexer.c
 const MAX_INDICES: usize = 4;
+pub type IndexVec<T> = SmallVec<[T; MAX_INDICES]>;
+pub type CardVec<T> = SmallVec<[T; 8]>;
 
 #[derive(Debug)]
 pub struct Indexer {
@@ -93,7 +96,7 @@ impl Indexer {
     /// assert!(indexes[0] < indexer.size[0]);
     /// assert!(indexes[1] < indexer.size[1]);
     /// ```
-    pub fn index_all(&self, cards: &[u8]) -> Vec<usize> {
+    pub fn index_all(&self, cards: &[u8]) -> IndexVec<usize> {
         // so we can check for success
         // *self.indexes_buffer.last_mut().unwrap() = 1;
         let mut indexes_buffer: [u64; MAX_INDICES] = [1; MAX_INDICES];
@@ -176,9 +179,9 @@ impl Indexer {
     /// let cards = indexer.unindex(some_index, 1);
     /// assert_eq!(indexer.index_round(&cards), some_index);
     /// ```
-    pub fn unindex(&self, index: usize, round: usize) -> Vec<u8> {
+    pub fn unindex(&self, index: usize, round: usize) -> CardVec<u8> {
         let num_cards = self.shape[..round + 1].iter().sum::<usize>();
-        let mut cards: Vec<u8> = vec![0; num_cards];
+        let mut cards: CardVec<u8> = smallvec![0; num_cards];
 
         unsafe {
             // now my cards should be filled
@@ -284,7 +287,7 @@ impl IndexerD {
         }
     }
 
-    pub fn index_all(&self, cards: &[u8]) -> Vec<usize> {
+    pub fn index_all(&self, cards: &[u8]) -> IndexVec<usize> {
         if duplicates(cards) {
             panic!("duplicate cards");
         }
@@ -298,7 +301,7 @@ impl IndexerD {
         self.indexer.index_round(cards)
     }
 
-    pub fn unindex(&self, index: usize, round: usize) -> Vec<u8> {
+    pub fn unindex(&self, index: usize, round: usize) -> CardVec<u8> {
         self.indexer.unindex(index, round)
     }
 }

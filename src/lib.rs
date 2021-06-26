@@ -7,4 +7,4 @@
 //!
 
 mod indexer;
-pub use indexer::{Indexer, IndexerD, LazyIndexer};
+pub use indexer::{CardVec, IndexVec, Indexer, IndexerD, LazyIndexer};

@@ -18,6 +18,7 @@ pub struct Indexer {
     pub max_cards: usize,
     soul: IndexerPtr,
 }
+
 /// In an Indexer cards are represented as u8 (keeping true to
 /// Kevins minimalist design).  Indexes are usize.  I've presumptuously
 /// converted the original u64 values to usize to make it easier to use as
@@ -210,6 +211,12 @@ impl Drop for Indexer {
     }
 }
 
+impl Clone for Indexer {
+    fn clone(&self) -> Self {
+        Self::new(self.shape.clone())
+    }
+}
+
 pub struct LazyIndexer<'a> {
     soul: IndexerPtr,
     state: StatePtr,
@@ -303,6 +310,12 @@ impl IndexerD {
 
     pub fn unindex(&self, index: usize, round: usize) -> CardVec<u8> {
         self.indexer.unindex(index, round)
+    }
+}
+
+impl Clone for IndexerD {
+    fn clone(&self) -> Self {
+        Self::new(self.shape.clone())
     }
 }
 

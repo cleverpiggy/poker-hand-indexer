@@ -1,4 +1,5 @@
 mod rust_bindings;
+use bitintr::Popcnt;
 use rust_bindings::*;
 use smallvec::{smallvec, SmallVec};
 use std::convert::{TryFrom, TryInto};
@@ -85,6 +86,7 @@ impl Indexer {
     /// # Panics
     ///
     /// - if cards.len() does not exactly equal the sum of the shape
+    /// - if there are duplicate cards
     ///
     /// # Examples
     /// ```
@@ -98,31 +100,10 @@ impl Indexer {
     /// assert!(indexes[1] < indexer.size[1]);
     /// ```
     pub fn index_all(&self, cards: &[u8]) -> IndexVec<usize> {
-        // so we can check for success
-        // *self.indexes_buffer.last_mut().unwrap() = 1;
-        let mut indexes_buffer: [u64; MAX_INDICES] = [1; MAX_INDICES];
-
-        if cards.len() != self.max_cards {
-            panic!(
-                "wrong number of cards got: {}  expected: {}",
-                cards.len(),
-                self.max_cards
-            );
+        if duplicates(cards) {
+            panic!("duplicate cards: {:?}", cards);
         }
-        let final_index =
-            unsafe { rust_index_all(self.soul, cards.as_ptr(), indexes_buffer.as_mut_ptr()) };
-        // Index all returns 0 on failure or last index on success.
-        // I initialized buffer to 1s to test success.
-        // (it should always succeed if indexer ptr is valid)
-        if final_index != indexes_buffer[self.shape.len() - 1] {
-            panic!("something went wrong indexing");
-        }
-        // now my buffer should be filled
-        indexes_buffer
-            .iter()
-            .take(self.shape.len())
-            .map(|x| usize::try_from(*x).unwrap())
-            .collect()
+        self.index_all_unchecked(cards)
     }
 
     /// Indexes one round and returns a single index.
@@ -138,6 +119,7 @@ impl Indexer {
     ///
     /// # Panics
     /// - if not enough cards for even the first round are supplied.
+    /// - if there are duplicate cards
     ///
     /// # Examples
     /// ```
@@ -152,18 +134,10 @@ impl Indexer {
     /// assert!(all_cards_index < indexer.size[1]);
     /// ```
     pub fn index_round(&self, cards: &[u8]) -> usize {
-        // I won't bother making sure cards isn't too long.
-        // This function just uses all the cards it can
-        // and it's up to the caller to know what round it
-        // it and what he's doing.
-        if cards.len() < self.shape[0] {
-            panic!("not even enough cards for the first round");
+        if duplicates(cards) {
+            panic!("duplicate cards: {:?}", cards);
         }
-        unsafe {
-            rust_index_round(self.soul, cards.as_ptr(), cards.len() as u32)
-                .try_into()
-                .unwrap()
-        }
+        self.index_round_unchecked(cards)
     }
 
     /// Returns the canonical cards from the index for a round.
@@ -191,6 +165,53 @@ impl Indexer {
             }
         }
         cards
+    }
+
+    /// Like index_all but doesn't check for duplicates.
+    /// It's left to the C code what will happen.
+    pub fn index_all_unchecked(&self, cards: &[u8]) -> IndexVec<usize> {
+        // so we can check for success
+        // *self.indexes_buffer.last_mut().unwrap() = 1;
+        let mut indexes_buffer: [u64; MAX_INDICES] = [1; MAX_INDICES];
+
+        if cards.len() != self.max_cards {
+            panic!(
+                "wrong number of cards got: {}  expected: {}",
+                cards.len(),
+                self.max_cards
+            );
+        }
+        let final_index =
+            unsafe { rust_index_all(self.soul, cards.as_ptr(), indexes_buffer.as_mut_ptr()) };
+        // Index all returns 0 on failure or last index on success.
+        // I initialized buffer to 1s to test success.
+        // (it should always succeed if indexer ptr is valid)
+        if final_index != indexes_buffer[self.shape.len() - 1] {
+            panic!("something went wrong indexing");
+        }
+        // now my buffer should be filled
+        indexes_buffer
+            .iter()
+            .take(self.shape.len())
+            .map(|x| usize::try_from(*x).unwrap())
+            .collect()
+    }
+
+    /// Like index_all but doesn't check for duplicates.
+    /// It's left to the C code what will happen.
+    pub fn index_round_unchecked(&self, cards: &[u8]) -> usize {
+        // I won't bother making sure cards isn't too long.
+        // This function just uses all the cards it can
+        // and it's up to the caller to know what round it
+        // it and what he's doing.
+        if cards.len() < self.shape[0] {
+            panic!("not even enough cards for the first round");
+        }
+        unsafe {
+            rust_index_round(self.soul, cards.as_ptr(), cards.len() as u32)
+                .try_into()
+                .unwrap()
+        }
     }
 
     /// Return a LazyIndexer
@@ -228,6 +249,8 @@ impl LazyIndexer<'_> {
     /// Returns the index for the next round.
     /// You must provide the exact number of cards for
     /// the current round and index the rounds one at a time.
+    /// It is similar to unchecked in that it is left to the
+    /// C code what happens if there are duplicate cards.
     ///
     /// # Panics
     /// - if the incorrect number of cards are supplied
@@ -268,66 +291,34 @@ impl Drop for LazyIndexer<'_> {
     }
 }
 
-/// Exactly the same as Indexer except it panics on duplicate cards.
-/// The standard Indexer will just quietly give a wrong answer.
-#[derive(Debug)]
-pub struct IndexerD {
-    indexer: Indexer,
-    pub shape: Vec<usize>,
-    pub size: Vec<usize>,
-    pub max_cards: usize,
-}
+// I'll leave this commented in case I want to go to
+// conditional compilation.
+// #[cfg(not(feature = "bitintr"))]
+// fn duplicates(cards: &[u8]) -> bool {
+//     let mut card_bits = 0_u64;
+//     for c in cards {
+//         // if c >= &52 {
+//         //     panic!("oh no!");
+//         // }
+//         if (card_bits >> c) & 1 != 0 {
+//             return true
+//         }
+//         card_bits |= 1 << c;
+//     }
+//     false
+// }
 
-impl IndexerD {
-    pub fn new(shape: Vec<usize>) -> Self {
-        let indexer = Indexer::new(shape);
-        let (shape, size, max_cards) = (
-            indexer.shape.clone(),
-            indexer.size.clone(),
-            indexer.max_cards,
-        );
-        Self {
-            indexer,
-            shape,
-            size,
-            max_cards,
-        }
-    }
-
-    pub fn index_all(&self, cards: &[u8]) -> IndexVec<usize> {
-        if duplicates(cards) {
-            panic!("duplicate cards");
-        }
-        self.indexer.index_all(cards)
-    }
-
-    pub fn index_round(&self, cards: &[u8]) -> usize {
-        if duplicates(cards) {
-            panic!("duplicate cards");
-        }
-        self.indexer.index_round(cards)
-    }
-
-    pub fn unindex(&self, index: usize, round: usize) -> CardVec<u8> {
-        self.indexer.unindex(index, round)
-    }
-}
-
-impl Clone for IndexerD {
-    fn clone(&self) -> Self {
-        Self::new(self.shape.clone())
-    }
-}
-
+// #[cfg(feature = "bitintr")]
 fn duplicates(cards: &[u8]) -> bool {
-    for (i, c) in cards.iter().enumerate() {
-        for c2 in &cards[(i + 1)..] {
-            if c == c2 {
-                return true;
-            }
-        }
+    let mut card_bits = 0_u64;
+    for c in cards {
+        // Deciding whether to put this in.
+        // if c >= &52 {
+        //     panic!("oh no!");
+        // }
+        card_bits |= 1 << c;
     }
-    false
+    card_bits.popcnt() != cards.len() as u64
 }
 
 #[cfg(test)]
@@ -380,20 +371,9 @@ mod tests {
     }
 
     #[test]
-    fn dups() {
-        let indexer = IndexerD::new(vec![2]);
-        indexer.index_all(&[0, 1]);
-        indexer.index_all(&[51, 50]);
-        indexer.index_round(&vec![0, 1]);
-        indexer.index_round(&vec![51, 50]);
-        indexer.unindex(168, 0);
-        indexer.unindex(0, 0);
-    }
-
-    #[test]
     #[should_panic]
     fn dups_panic() {
-        let indexer = IndexerD::new(vec![2]);
-        indexer.index_all(&[2, 2]);
+        let indexer = Indexer::new(vec![7]);
+        indexer.index_all(&[2, 7, 45, 38, 7, 44, 1]);
     }
 }

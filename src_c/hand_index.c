@@ -25,6 +25,8 @@ static void __attribute__((constructor)) hand_index_ctor() {
   }
 
   for(uint_fast32_t i=0; i<1<<RANKS; ++i) {
+    // ADDED the suppress warning
+    #pragma GCC diagnostic ignored "-Wparentheses"
     for(uint_fast32_t j=0, set=~i&(1<<RANKS)-1; j<RANKS; ++j, set&=set-1) {
       nth_unset[i][j] = set?__builtin_ctz(set):0xff;
     }

@@ -21,7 +21,7 @@ use smallvec::smallvec;
 // four: 63.132026ms
 
 fn main() {
-    let indexer = Indexer::new(vec![2, 3, 1, 1]);
+    let indexer = Indexer::new(vec![2, 3, 1, 1]).unwrap();
     let mut cards = vec![0; 7];
     let mut all = Duration::new(0, 0);
     let mut one = Duration::new(0, 0);
@@ -68,7 +68,7 @@ fn main() {
 
 fn time_all(indexer: &Indexer, cards: &[u8]) -> (IndexVec<usize>, Duration) {
     let start = Instant::now();
-    let result = indexer.index_all(cards);
+    let result = indexer.index_all(cards).unwrap();
     let time = Instant::now() - start;
     (result, time)
 }

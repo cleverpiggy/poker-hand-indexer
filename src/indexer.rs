@@ -20,7 +20,8 @@ pub type IResult<T> = Result<T, IndexerError>;
 pub enum IndexerError {
     UnsupportedShape,
     DuplicateCards,
-    IndexOutOfRangeOrOtherMisadventures,
+    CIndexOutOfRange,
+    OutOfRange { index: usize, len: usize },
     WrongNumberOfCards,
     SomethingWentWrong,
     None,
@@ -180,7 +181,7 @@ impl Indexer {
         unsafe {
             // now my cards should be filled
             if !rust_unindex(self.soul, round as u32, index as u64, cards.as_mut_ptr()) {
-                return Err(IndexerError::IndexOutOfRangeOrOtherMisadventures);
+                return Err(IndexerError::CIndexOutOfRange);
             }
         }
         Ok(cards)
@@ -345,7 +346,12 @@ fn check_duplicates(cards: &[u8]) -> IResult<()> {
 
 impl fmt::Display for IndexerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        match self {
+            Self::OutOfRange { index, len } => {
+                write!(f, "the index was {} but the len was {}", index, len)
+            }
+            _ => write!(f, "{:?}", self),
+        }
     }
 }
 

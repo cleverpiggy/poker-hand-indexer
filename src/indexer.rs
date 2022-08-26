@@ -1,5 +1,5 @@
 mod rust_bindings;
-use std::convert::{TryFrom, TryInto};
+use std::cmp::Ordering;
 use std::error::Error;
 use std::fmt;
 
@@ -155,6 +155,22 @@ impl Indexer {
     /// ```
     pub fn index_round(&self, cards: &[u8]) -> IResult<usize> {
         check_duplicates(cards)?;
+        // The c function just uses all the cards it can
+        // and it's up to the caller to know what round it
+        // it and what he's doing.  We'll return an error if the perfect
+        // cards aren't supplied.
+        let mut tot = 0;
+        for round_cards in &self.shape {
+            tot += round_cards;
+            match tot.cmp(&cards.len()) {
+                Ordering::Greater => return Err(IndexerError::WrongNumberOfCards),
+                Ordering::Equal => break,
+                Ordering::Less => (),
+            }
+        }
+        if tot != cards.len() {
+            return Err(IndexerError::WrongNumberOfCards);
+        }
         self.index_round_unchecked(cards)
     }
 
@@ -213,16 +229,11 @@ impl Indexer {
             .collect())
     }
 
-    /// Like index_round but doesn't check for duplicates.
-    /// It's left to the C code what will happen.
+    /// Like index_round but doesn't check for duplicates or for the correct
+    /// number of cards.  Too few cards will return 0.  Too many will truncate
+    /// the cards to an appropriate number and return the index for those.
+    /// It's left to the C code what will happen in case of duplicates.
     pub fn index_round_unchecked(&self, cards: &[u8]) -> IResult<usize> {
-        // I won't bother making sure cards isn't too long.
-        // This function just uses all the cards it can
-        // and it's up to the caller to know what round it
-        // it and what he's doing.
-        if cards.len() < self.shape[0] {
-            return Err(IndexerError::WrongNumberOfCards);
-        }
         Ok(unsafe {
             rust_index_round(self.soul, cards.as_ptr(), cards.len() as u32)
                 .try_into()
